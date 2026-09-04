@@ -66,10 +66,13 @@ class ExcelReportGenerator:
         # 2. Hoja: Cruces Intercuentas (Anomalías clave)
         self._build_cross_account_sheet(wb, reconciliation_data)
 
-        # 3. Hoja: Gastos e Impuestos Bancarios (GMF, Comisiones, Intereses)
+        # 3. Hoja: Gastos e Impuestos Bancarios (GMF, Comisiones, IVA)
         self._build_bank_expenses_sheet(wb, reconciliation_data)
 
-        # 4. Hoja: Conciliados 1-a-1
+        # 4. Hoja: Intereses y Rendimientos Financieros
+        self._build_interest_sheet(wb, reconciliation_data)
+
+        # 5. Hoja: Conciliados 1-a-1
         self._build_matched_sheet(wb, reconciliation_data)
 
         # 5. Hoja: Pendientes en Banco
@@ -346,9 +349,9 @@ class ExcelReportGenerator:
         ws = wb.create_sheet(title="Gastos e Impuestos Bancarios")
         ws.views.sheetView[0].showGridLines = True
 
-        ws["A1"] = "GASTOS BANCARIOS, IMPUESTOS (GMF 4X1000, COMISIONES) E INTERESES"
+        ws["A1"] = "GASTOS BANCARIOS E IMPUESTOS (GMF 4X1000, COMISIONES, RETENCIONES, IVA)"
         ws["A1"].font = self.font_title
-        ws["A2"] = "Listado detallado de partidas cobradas/abonadas por las entidades financieras para su respectivo registro contable."
+        ws["A2"] = "Listado detallado de cobros e impuestos deducidos por las entidades financieras para su registro contable."
         ws["A2"].font = self.font_subtitle
 
         headers = [
@@ -370,7 +373,11 @@ class ExcelReportGenerator:
         for acc_k, acc_r in data.get("cuentas", {}).items():
             all_exp.extend(acc_r.get("gastos_impuestos", []))
 
-        for item in all_exp:
+        # Filtrar solo gastos e impuestos (excluyendo abonos de intereses)
+        gastos_solo = [item for item in all_exp if item.get("tipo") != "INTERESES" and "RENDIMIENTO" not in str(item.get("descripcion", "")).upper()]
+
+        total_gastos = 0.0
+        for item in gastos_solo:
             ws.cell(row=row_idx, column=1, value=item.get("banco", "")).alignment = Alignment(horizontal="left")
             ws.cell(row=row_idx, column=2, value=item.get("cuenta_banco", "")).alignment = Alignment(horizontal="left")
             ws.cell(row=row_idx, column=3, value=item.get("tipo", "")).alignment = Alignment(horizontal="center")
@@ -378,7 +385,9 @@ class ExcelReportGenerator:
             ws.cell(row=row_idx, column=5, value=str(item.get("documento", ""))).alignment = Alignment(horizontal="center")
             ws.cell(row=row_idx, column=6, value=item.get("descripcion", "")).alignment = Alignment(horizontal="left")
 
-            c_val = ws.cell(row=row_idx, column=7, value=item.get("monto", 0.0))
+            val = item.get("monto", 0.0)
+            total_gastos += abs(val)
+            c_val = ws.cell(row=row_idx, column=7, value=val)
             c_val.number_format = self.fmt_currency
 
             ws.cell(row=row_idx, column=8, value=item.get("sugerencia_contable", "")).alignment = Alignment(horizontal="left")
@@ -387,6 +396,71 @@ class ExcelReportGenerator:
                 ws.cell(row=row_idx, column=col_c).border = self.border_cell
 
             row_idx += 1
+
+        self._auto_fit_columns(ws)
+
+    def _build_interest_sheet(self, wb: openpyxl.Workbook, data: Dict[str, Any]):
+        ws = wb.create_sheet(title="Intereses y Rendimientos")
+        ws.views.sheetView[0].showGridLines = True
+
+        ws["A1"] = "INTERESES Y RENDIMIENTOS FINANCIEROS ABONADOS POR BANCOS"
+        ws["A1"].font = self.font_title
+        ws["A2"] = "Abonos de intereses en cuentas de ahorro, inversiones virtuales y CDTs para causación en Karing (Cuenta 421005)."
+        ws["A2"].font = self.font_subtitle
+
+        headers = [
+            "Banco", "Cuenta Planetour", "Fecha Abono",
+            "Descripción en Extracto", "Valor Rendimiento ($)", "Asiento Contable Sugerido"
+        ]
+
+        row_idx = 4
+        for col_idx, h in enumerate(headers, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=h)
+            cell.font = self.font_header
+            cell.fill = self.fill_header
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        ws.row_dimensions[row_idx].height = 25
+        row_idx += 1
+
+        all_exp = []
+        for acc_k, acc_r in data.get("cuentas", {}).items():
+            all_exp.extend(acc_r.get("gastos_impuestos", []))
+
+        intereses = [item for item in all_exp if item.get("tipo") == "INTERESES" or "RENDIMIENTO" in str(item.get("descripcion", "")).upper()]
+
+        total_int = 0.0
+        for item in intereses:
+            ws.cell(row=row_idx, column=1, value=item.get("banco", "")).alignment = Alignment(horizontal="left")
+            ws.cell(row=row_idx, column=2, value=item.get("cuenta_banco", "")).alignment = Alignment(horizontal="left")
+            ws.cell(row=row_idx, column=3, value=item.get("fecha", "")).alignment = Alignment(horizontal="center")
+            ws.cell(row=row_idx, column=4, value=item.get("descripcion", "")).alignment = Alignment(horizontal="left")
+
+            val = abs(float(item.get("monto", 0.0)))
+            total_int += val
+            c_val = ws.cell(row=row_idx, column=5, value=val)
+            c_val.number_format = self.fmt_currency
+
+            ws.cell(row=row_idx, column=6, value=item.get("sugerencia_contable", "")).alignment = Alignment(horizontal="left")
+
+            for col_c in range(1, len(headers) + 1):
+                ws.cell(row=row_idx, column=col_c).border = self.border_cell
+
+            row_idx += 1
+
+        if intereses:
+            ws.cell(row=row_idx, column=1, value="TOTAL RENDIMIENTOS").font = self.font_bold
+            ws.cell(row=row_idx, column=1).alignment = Alignment(horizontal="left")
+            ws.cell(row=row_idx, column=1).fill = self.fill_subtotal
+            for c in range(2, 5):
+                ws.cell(row=row_idx, column=c).fill = self.fill_subtotal
+            c_tot = ws.cell(row=row_idx, column=5, value=total_int)
+            c_tot.font = self.font_bold
+            c_tot.number_format = self.fmt_currency
+            c_tot.fill = self.fill_subtotal
+            ws.cell(row=row_idx, column=6).fill = self.fill_subtotal
+            for col_c in range(1, len(headers) + 1):
+                ws.cell(row=row_idx, column=col_c).border = self.border_cell
 
         self._auto_fit_columns(ws)
 

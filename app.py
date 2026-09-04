@@ -146,13 +146,14 @@ MENU_OPTIONS = [
     "🚨 2. Lo que está MAL (Cruces Intercuentas)",
     "❓ 3. Lo que FALTA por Conciliar (Pendientes)",
     "💸 4. Gastos e Impuestos Bancarios (4x1000)",
-    "✅ 5. Lo que está BIEN (Conciliados 1 a 1)",
-    "🔍 6. Buscador y Auditoría de Montos Repetidos",
-    "📤 7. Cargar Nuevos Archivos / Meses"
+    "💰 5. Intereses y Rendimientos de Cuentas",
+    "✅ 6. Lo que está BIEN (Conciliados 1 a 1)",
+    "🔍 7. Buscador y Auditoría de Montos Repetidos",
+    "📤 8. Cargar Nuevos Archivos / Meses"
 ]
 
-if "active_tab" not in st.session_state or st.session_state.get("active_tab") == "🔍 6. Buscador Universal de Movimientos":
-    st.session_state["active_tab"] = MENU_OPTIONS[5] if st.session_state.get("active_tab") == "🔍 6. Buscador Universal de Movimientos" else MENU_OPTIONS[0]
+if "active_tab" not in st.session_state or st.session_state.get("active_tab") not in MENU_OPTIONS:
+    st.session_state["active_tab"] = MENU_OPTIONS[0]
 
 def navigate_to(tab_name: str):
     st.session_state["active_tab"] = tab_name
@@ -225,7 +226,7 @@ st.markdown("---")
 # EJECUCIÓN DEL MOTOR CON INDICADOR DE CARGA VISIBLE
 # -------------------------------------------------------------
 @st.cache_data(show_spinner=False)
-def run_reconciliation(month: str, tol: int, _cache_version: str = "v2.3"):
+def run_reconciliation(month: str, tol: int, _cache_version: str = "v2.4"):
     eng = ReconciliationEngine(root_dir=ROOT_DIR, date_tolerance_days=tol)
     return eng.reconcile_month(month)
 
@@ -281,60 +282,74 @@ if st.session_state["active_tab"] == MENU_OPTIONS[0]:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 4 TARJETAS ACCIONABLES CON BOTÓN CLICKABLE
-    c1, c2, c3, c4 = st.columns(4)
+    # 5 TARJETAS ACCIONABLES CON BOTÓN CLICKABLE
+    c1, c2, c3, c4, c5 = st.columns(5)
 
     with c1:
         st.markdown(f"""
         <div class="action-card" style="border-top: 4px solid #10b981;">
             <div class="action-card-title" style="color: #059669;">✅ Conciliados (1 a 1)</div>
-            <div class="action-card-val">{glob['total_conciliados']:,} <span style="font-size:15px; color:#64748b;">partidas</span></div>
+            <div class="action-card-val">{glob['total_conciliados']:,} <span style="font-size:14px; color:#64748b;">partidas</span></div>
             <div class="action-card-desc">
                 Monto: <b>${glob['monto_total_conciliado']:,.2f}</b><br>
                 Coincidencia exacta de valor y fecha entre banco y Karing.
             </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("👉 Ver Movimientos Conciliados", key="btn_go_conc", width="stretch"):
-            navigate_to(MENU_OPTIONS[4])
+        if st.button("👉 Ver Conciliados", key="btn_go_conc", width="stretch"):
+            navigate_to(MENU_OPTIONS[5])
 
     with c2:
         st.markdown(f"""
         <div class="action-card" style="border-top: 4px solid #f59e0b;">
             <div class="action-card-title" style="color: #d97706;">🚨 Lo que está MAL (Intercuentas)</div>
-            <div class="action-card-val">{glob['total_cruces_intercuentas']:,} <span style="font-size:15px; color:#64748b;">traslados</span></div>
+            <div class="action-card-val">{glob['total_cruces_intercuentas']:,} <span style="font-size:14px; color:#64748b;">traslados</span></div>
             <div class="action-card-desc">
                 Monto: <b>${glob['monto_total_cruces']:,.2f}</b><br>
-                Dinero que llegó a un banco pero se asentó en otra cuenta en Karing.
+                Dinero en banco asentado en otra cuenta en Karing.
             </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("👉 Corregir Cuentas Erróneas", key="btn_go_cross", width="stretch"):
+        if st.button("👉 Corregir Cuentas", key="btn_go_cross", width="stretch"):
             navigate_to(MENU_OPTIONS[1])
 
     with c3:
         st.markdown(f"""
         <div class="action-card" style="border-top: 4px solid #8b5cf6;">
-            <div class="action-card-title" style="color: #7c3aed;">💸 Gastos e Impuestos Banco</div>
+            <div class="action-card-title" style="color: #7c3aed;">💸 Gastos y 4x1000</div>
             <div class="action-card-val">${glob['total_gastos_bancarios']:,.0f}</div>
             <div class="action-card-desc">
-                GMF 4x1000: <b>${glob['total_gmf']:,.0f}</b> | Comisiones: <b>${glob['total_comisiones']:,.0f}</b><br>
-                Cobros automáticos del banco por registrar en Karing.
+                GMF: <b>${glob['total_gmf']:,.0f}</b> | Comis: <b>${glob['total_comisiones']:,.0f}</b><br>
+                Cobros bancarios por contabilizar en Karing.
             </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("👉 Ver Gastos y Asientos", key="btn_go_tax", width="stretch"):
+        if st.button("👉 Ver Gastos y 4x1000", key="btn_go_tax", width="stretch"):
             navigate_to(MENU_OPTIONS[3])
 
     with c4:
+        st.markdown(f"""
+        <div class="action-card" style="border-top: 4px solid #0284c7;">
+            <div class="action-card-title" style="color: #0369a1;">💰 Intereses / Rendimientos</div>
+            <div class="action-card-val">${glob['total_intereses']:,.0f}</div>
+            <div class="action-card-desc">
+                Abonos de intereses en ahorro y CDT.<br>
+                Ingresos a favor por causar en Karing (421005).
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("👉 Ver Intereses (421005)", key="btn_go_interest", width="stretch"):
+            navigate_to(MENU_OPTIONS[4])
+
+    with c5:
         total_faltantes = glob['total_pendientes_banco'] + glob['total_pendientes_karing']
         st.markdown(f"""
         <div class="action-card" style="border-top: 4px solid #ef4444;">
             <div class="action-card-title" style="color: #dc2626;">❓ Lo que FALTA por Conciliar</div>
-            <div class="action-card-val">{total_faltantes:,} <span style="font-size:15px; color:#64748b;">partidas</span></div>
+            <div class="action-card-val">{total_faltantes:,} <span style="font-size:14px; color:#64748b;">partidas</span></div>
             <div class="action-card-desc">
-                En Banco sin Karing: <b>{glob['total_pendientes_banco']:,}</b> (${glob['monto_total_pendientes_banco']:,.0f})<br>
-                En Karing sin Banco: <b>{glob['total_pendientes_karing']:,}</b> (${glob['monto_total_pendientes_karing']:,.0f})
+                Banco sin Karing: <b>{glob['total_pendientes_banco']:,}</b><br>
+                Karing sin Banco: <b>{glob['total_pendientes_karing']:,}</b>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -994,9 +1009,205 @@ CUENTA CONTABLE                    CONCEPTO                      DÉBITO ($)    
         st.success("🎉 No se registraron gastos bancarios ni impuestos en la selección consultada.")
 
 # =============================================================
-# VISTA 5: LO QUE ESTÁ BIEN (CONCILIADOS 1 A 1)
+# VISTA 5: INTERESES Y RENDIMIENTOS DE CUENTAS (INGRESOS FINANCIEROS)
 # =============================================================
 elif st.session_state["active_tab"] == MENU_OPTIONS[4]:
+    st.markdown("""
+    <div class="info-banner" style="border-left: 5px solid #0284c7;">
+        <h4 style="margin:0 0 6px 0; color:#0369a1;">💰 ¿Qué es esta sección? (Intereses y Rendimientos Financieros Abonados)</h4>
+        <b>Naturaleza Contable:</b> Son dineros que las entidades financieras (Bancolombia, Banco de Bogotá, Davivienda, etc.) abonaron directamente en las cuentas bancarias de Planetour por concepto de <b>rendimientos diarios de cuentas de ahorro, inversiones virtuales o liquidación de CDTs</b>.<br>
+        <b>Estado de Conciliación:</b> Los extractos bancarios los reflejan plenamente, pero en <b>Karing actualmente no están causados (0 registros en libros contables)</b>.<br>
+        <b>Acción Contable Requerida:</b> Generar la Nota de Contabilidad debitando la cuenta bancaria donde ingresó el dinero y acreditando la cuenta de <b>Ingresos Financieros (421005)</b> para que los saldos contables suban y cuadren exactamente con los extractos.
+    </div>
+    """, unsafe_allow_html=True)
+
+    def get_month_interests(m_name: str):
+        m_rec = run_reconciliation(m_name, tolerance_days)
+        m_ints = []
+        for acc_k, acc_r in m_rec.get("cuentas", {}).items():
+            for g in acc_r.get("gastos_impuestos", []):
+                if g.get("tipo") == "INTERESES" or "RENDIMIENTO" in str(g.get("descripcion", "")).upper():
+                    item = dict(g)
+                    item["periodo"] = m_name
+                    m_ints.append(item)
+        return m_ints
+
+    period_options_int = [f"MES ACTUAL ({selected_month})"]
+    for m in available_months:
+        if m != selected_month:
+            period_options_int.append(f"Periodo: {m}")
+    if len(available_months) > 1:
+        period_options_int.append("TODOS LOS MESES (Consolidado Histórico)")
+
+    st.markdown("##### 🔍 Filtros de Consulta y Descarga:")
+    f_int1, f_int2, f_int3 = st.columns(3)
+
+    with f_int1:
+        sel_per_choice = st.selectbox("📅 Seleccionar Periodo / Mes:", options=period_options_int, key="flt_int_per")
+
+    if sel_per_choice.startswith("MES ACTUAL"):
+        all_interests = get_month_interests(selected_month)
+        periodo_int_title = selected_month
+    elif sel_per_choice == "TODOS LOS MESES (Consolidado Histórico)":
+        all_interests = []
+        for m in available_months:
+            all_interests.extend(get_month_interests(m))
+        periodo_int_title = "CONSOLIDADO_HISTORICO"
+    else:
+        chosen_m = sel_per_choice.replace("Periodo: ", "").strip()
+        all_interests = get_month_interests(chosen_m)
+        periodo_int_title = chosen_m
+
+    with f_int2:
+        ctas_with_interest = sorted(list({i.get("cuenta_banco") for i in all_interests if i.get("cuenta_banco")}))
+        ctas_int_options = ["TODAS LAS CUENTAS"] + ctas_with_interest
+        sel_cta_int = st.selectbox(
+            "🏦 Filtrar por Cuenta Bancaria:",
+            options=ctas_int_options,
+            format_func=lambda x: "🏦 TODAS LAS CUENTAS (Consolidado)" if x == "TODAS LAS CUENTAS" else account_labels.get(x, x),
+            key="flt_int_cta"
+        )
+
+    with f_int3:
+        tipos_int_disp = ["TODOS LOS RENDIMIENTOS", "Abono Intereses Cuentas Ahorro", "Inversión Virtual / CDTs"]
+        sel_tipo_int = st.selectbox("📑 Filtrar por Tipo de Rendimiento:", options=tipos_int_disp, key="flt_int_tipo")
+
+    filtered_int = all_interests.copy()
+    if sel_cta_int != "TODAS LAS CUENTAS":
+        filtered_int = [i for i in filtered_int if i.get("cuenta_banco") == sel_cta_int]
+
+    if sel_tipo_int == "Abono Intereses Cuentas Ahorro":
+        filtered_int = [i for i in filtered_int if "AHORRO" in str(i.get("descripcion", "")).upper() or "RENDIMIENTOS FINANCIEROS" in str(i.get("descripcion", "")).upper()]
+    elif sel_tipo_int == "Inversión Virtual / CDTs":
+        filtered_int = [i for i in filtered_int if any(k in str(i.get("descripcion", "")).upper() for k in ["CDT", "VIRTUAL", "INV"])]
+
+    total_val_int = sum(abs(float(i.get("monto", 0.0))) for i in filtered_int)
+    num_abonos_int = len(filtered_int)
+    max_abono_int = max([abs(float(i.get("monto", 0.0))) for i in filtered_int], default=0.0)
+
+    m_i1, m_i2, m_i3, m_i4 = st.columns(4)
+    with m_i1:
+        st.metric("Total Rendimientos Abonados ($)", f"${total_val_int:,.2f}")
+    with m_i2:
+        st.metric("Número de Abonos Registrados", f"{num_abonos_int:,} abonos")
+    with m_i3:
+        st.metric("Mayor Rendimiento Unitario", f"${max_abono_int:,.2f}")
+    with m_i4:
+        st.metric("Estado en Libros Karing", "🔴 0 causados (Pendiente)")
+
+    st.markdown("#### 📝 Asiento Contable Sugerido para Causar en Karing (Ingresos Financieros):")
+
+    if sel_cta_int != "TODAS LAS CUENTAS":
+        matched_cfg_int = None
+        for cfg in ACCOUNTS_CATALOG.values():
+            if cfg.karing_name == sel_cta_int:
+                matched_cfg_int = cfg
+                break
+        cta_code_int = f"{matched_cfg_int.karing_code} - {matched_cfg_int.karing_name}" if matched_cfg_int else f"11XXXX - {sel_cta_int}"
+        cuenta_label_int = f"Cuenta: {sel_cta_int}"
+    else:
+        cta_code_int = "11XXXX - Bancos (Varias Cuentas)"
+        cuenta_label_int = "Todas las Cuentas con Rendimientos"
+
+    st.code(f"""
+-- ASIENTO DE CAUSACIÓN DE RENDIMIENTOS FINANCIEROS - {periodo_int_title} ({cuenta_label_int})
+---------------------------------------------------------------------------------------------------
+CÓDIGO CONTABLE                      DESCRIPCIÓN                        DÉBITO ($)       CRÉDITO ($)
+---------------------------------------------------------------------------------------------------
+{cta_code_int:<36} Entrada de rendimientos al banco   ${total_val_int:,.2f}
+421005 - Ingresos Financieros        Rendimientos e intereses periodo                    ${total_val_int:,.2f}
+---------------------------------------------------------------------------------------------------
+SUMAS IGUALES                                                      ${total_val_int:,.2f}     ${total_val_int:,.2f}
+    """, language="sql")
+
+    if sel_cta_int == "TODAS LAS CUENTAS" and filtered_int:
+        with st.expander("📊 Ver desglose de causación por cada cuenta bancaria individual:"):
+            st.caption("Distribución exacta para elaborar el comprobante contable en Karing:")
+            breakdown_dict = {}
+            for item in filtered_int:
+                cta = item.get("cuenta_banco", "")
+                val = abs(float(item.get("monto", 0.0)))
+                breakdown_dict[cta] = breakdown_dict.get(cta, 0.0) + val
+
+            bd_rows = []
+            for cta, val in sorted(breakdown_dict.items(), key=lambda x: x[1], reverse=True):
+                matched_cfg = next((c for c in ACCOUNTS_CATALOG.values() if c.karing_name == cta), None)
+                code_str = f"{matched_cfg.karing_code} - {matched_cfg.karing_name}" if matched_cfg else cta
+                bd_rows.append({
+                    "Cuenta Contable Karing": code_str,
+                    "Total Rendimiento ($)": val,
+                    "Participación (%)": f"{(val / total_val_int * 100):.1f}%" if total_val_int > 0 else "0%"
+                })
+            st.dataframe(pd.DataFrame(bd_rows), width="stretch", hide_index=True)
+
+    st.markdown("#### Detalle Individual de Cada Abono de Interés en Extracto:")
+
+    if filtered_int:
+        df_int_disp = pd.DataFrame(filtered_int)
+        for col, def_val in [
+            ("periodo", periodo_int_title),
+            ("banco", ""),
+            ("cuenta_banco", ""),
+            ("fecha", ""),
+            ("monto", 0.0),
+            ("descripcion", ""),
+            ("sugerencia_contable", "")
+        ]:
+            if col not in df_int_disp.columns:
+                df_int_disp[col] = def_val
+
+        df_int_disp["monto"] = df_int_disp["monto"].abs()
+
+        df_int_final = df_int_disp[[
+            "periodo", "banco", "cuenta_banco", "fecha", "monto", "descripcion", "sugerencia_contable"
+        ]].rename(columns={
+            "periodo": "Periodo",
+            "banco": "Banco",
+            "cuenta_banco": "Cuenta Bancaria",
+            "fecha": "Fecha de Abono",
+            "monto": "Valor Rendimiento ($)",
+            "descripcion": "Descripción en Extracto",
+            "sugerencia_contable": "Asiento Contable Sugerido"
+        })
+
+        excel_int_bytes = safe_export_dataframe_to_excel_bytes(
+            df_int_final,
+            title=f"Rendimientos e Intereses Bancarios - {periodo_int_title}",
+            sheet_name="Intereses_Rendimientos"
+        )
+        col_di1, col_di2 = st.columns([3, 1])
+        with col_di2:
+            fname_clean_per = periodo_int_title.replace(' ', '_').replace('(', '').replace(')', '')
+            fname_clean_cta = sel_cta_int.replace(' ', '_')[:20]
+            st.download_button(
+                label="📥 Descargar Listado en Excel (.xlsx)",
+                data=excel_int_bytes,
+                file_name=f"Intereses_Rendimientos_{fname_clean_per}_{fname_clean_cta}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                width="stretch"
+            )
+
+        st.dataframe(
+            df_int_final,
+            column_config={
+                "Periodo": st.column_config.TextColumn("Periodo", width=110),
+                "Banco": st.column_config.TextColumn("Banco", width=115),
+                "Cuenta Bancaria": st.column_config.TextColumn("Cuenta Bancaria", width=170),
+                "Fecha de Abono": st.column_config.TextColumn("Fecha Abono", width=105),
+                "Valor Rendimiento ($)": st.column_config.NumberColumn("Valor Rendimiento ($)", format="$ %,.2f", width=150),
+                "Descripción en Extracto": st.column_config.TextColumn("Descripción en Extracto", width=340),
+                "Asiento Contable Sugerido": st.column_config.TextColumn("Asiento Contable Sugerido", width=380)
+            },
+            width="stretch",
+            hide_index=True
+        )
+    else:
+        st.success("🎉 No se registraron abonos de intereses en la selección consultada.")
+
+# =============================================================
+# VISTA 6: LO QUE ESTÁ BIEN (CONCILIADOS 1 A 1)
+# =============================================================
+elif st.session_state["active_tab"] == MENU_OPTIONS[5]:
     st.markdown("""
     <div class="info-banner">
         <h4 style="margin:0 0 6px 0; color:#1e293b;">✅ Movimientos Conciliados Exitosamente (1 a 1)</h4>
@@ -1109,9 +1320,9 @@ elif st.session_state["active_tab"] == MENU_OPTIONS[4]:
         )
 
 # =============================================================
-# VISTA 6: BUSCADOR UNIVERSAL
+# VISTA 7: BUSCADOR UNIVERSAL
 # =============================================================
-elif st.session_state["active_tab"] == MENU_OPTIONS[5]:
+elif st.session_state["active_tab"] == MENU_OPTIONS[6]:
     tab_search_gen, tab_auditoria_montos = st.tabs([
         "🔍 1. Buscador Universal (por Documento, Tercero, Texto o Monto)",
         "⚖️ 2. Auditoría y Trazabilidad de Montos Repetidos (¿Cuál macheó y cuál faltó?)"
@@ -1467,9 +1678,9 @@ elif st.session_state["active_tab"] == MENU_OPTIONS[5]:
             st.info(f"Ningún movimiento de este monto se ha conciliado aún.")
 
 # =============================================================
-# VISTA 7: CARGAR NUEVOS ARCHIVOS / MESES
+# VISTA 8: CARGAR NUEVOS ARCHIVOS / MESES
 # =============================================================
-elif st.session_state["active_tab"] == MENU_OPTIONS[6]:
+elif st.session_state["active_tab"] == MENU_OPTIONS[7]:
     st.markdown("""
     <div class="info-banner">
         <h4 style="margin:0 0 6px 0; color:#1e293b;">📤 Cargar Extractos y Libros Auxiliares para Nuevos Meses</h4>
