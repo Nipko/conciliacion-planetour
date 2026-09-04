@@ -1,0 +1,30 @@
+# Entornos virtuales Python
+venv/
+.venv/
+env/
+ENV/
+
+# Archivos de caché y compilación Python
+__pycache__/
+*.py[cod]
+*.class
+.pytest_cache/
+.cache/
+
+# Archivos temporales de Office / Excel
+~$*.xlsx
+~$*.xls
+
+# Archivos de configuración de IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs y depuración
+*.log
