@@ -7,6 +7,7 @@ import streamlit as st
 import pandas as pd
 import os
 import io
+import re
 from datetime import datetime
 
 from src.engine.matcher import ReconciliationEngine
@@ -779,93 +780,218 @@ elif st.session_state["active_tab"] == MENU_OPTIONS[3]:
     st.markdown("""
     <div class="info-banner">
         <h4 style="margin:0 0 6px 0; color:#1e293b;">💸 Gastos Bancarios, GMF (4x1000), Comisiones e Intereses</h4>
-        Movimientos automáticos cobrados o abonados por los bancos durante el mes. 
-        Incluye el cálculo consolidado y la propuesta del asiento contable para asentar en Karing.
+        Movimientos automáticos cobrados o abonados por los bancos. 
+        Permite filtrar y descargar en Excel <b>por Cuenta Bancaria</b> y <b>por Periodo / Mes</b>, 
+        con su respectivo asiento contable modelo sugerido para asentar en Karing.
     </div>
     """, unsafe_allow_html=True)
 
+    # 1. Controles de Filtrado: Mes / Periodo, Cuenta Bancaria y Concepto
+    c_f1, c_f2, c_f3 = st.columns([1.5, 2.0, 1.3])
+    with c_f1:
+        mes_opts = [f"Mes Seleccionado ({selected_month})"] + [m for m in available_months if m != selected_month] + ["📊 TODOS LOS MESES (Consolidado Histórico)"]
+        sel_mes_opt = st.selectbox("📅 Periodo / Mes a Consultar y Descargar:", options=mes_opts, key="flt_exp_mes")
+
+    # Determinar qué meses cargar
+    if "TODOS LOS MESES" in sel_mes_opt:
+        target_months = available_months
+        periodo_title = "Todos los Meses (Consolidado)"
+        periodo_slug = "TODOS_LOS_MESES"
+    elif "Mes Seleccionado" in sel_mes_opt:
+        target_months = [selected_month]
+        periodo_title = selected_month
+        periodo_slug = selected_month.replace(" ", "_")
+    else:
+        target_months = [sel_mes_opt]
+        periodo_title = sel_mes_opt
+        periodo_slug = sel_mes_opt.replace(" ", "_")
+
+    # 2. Cargar gastos e impuestos del periodo solicitado
     all_exp = []
-    for acc_k, acc_r in reconciliation["cuentas"].items():
-        all_exp.extend(acc_r.get("gastos_impuestos", []))
+    for tm in target_months:
+        rec_tm = run_reconciliation(tm, tolerance_days)
+        for acc_k, acc_r in rec_tm["cuentas"].items():
+            for g in acc_r.get("gastos_impuestos", []):
+                item_g = g.copy()
+                item_g["periodo"] = tm
+                all_exp.append(item_g)
 
     if all_exp:
-        df_exp = pd.DataFrame(all_exp)
+        # Construir nombres amigables de cuentas
+        all_account_names = sorted(list(set(g["cuenta_banco"] for g in all_exp if g.get("cuenta_banco"))))
+        account_labels = {}
+        for an in all_account_names:
+            matched_cfg = None
+            for cfg in ACCOUNTS_CATALOG.values():
+                if cfg.karing_name == an:
+                    matched_cfg = cfg
+                    break
+            if matched_cfg:
+                account_labels[an] = f"{matched_cfg.bank_name} - {matched_cfg.karing_name} (#{str(matched_cfg.account_number)[-4:]})"
+            else:
+                account_labels[an] = an
 
-        # Métricas de Conceptos
+        ctas_options = ["TODAS LAS CUENTAS"] + all_account_names
+
+        with c_f2:
+            sel_cta = st.selectbox(
+                "🏦 Filtrar por Cuenta Bancaria:",
+                options=ctas_options,
+                format_func=lambda x: "🏦 TODAS LAS CUENTAS (Consolidado)" if x == "TODAS LAS CUENTAS" else account_labels.get(x, x),
+                key="flt_exp_cta"
+            )
+
+        with c_f3:
+            tipos_disp = ["TODOS LOS CONCEPTOS", "GMF (4x1000)", "Comisiones Bancarias", "Rendimientos / Intereses", "IVA / Otros"]
+            sel_tipo = st.selectbox("📑 Filtrar por Concepto:", options=tipos_disp, key="flt_exp_tipo")
+
+        # 3. Aplicar filtros
+        filtered_exp = all_exp.copy()
+        if sel_cta != "TODAS LAS CUENTAS":
+            filtered_exp = [g for g in filtered_exp if g.get("cuenta_banco") == sel_cta]
+
+        if sel_tipo == "GMF (4x1000)":
+            filtered_exp = [g for g in filtered_exp if "GMF" in g.get("tipo", "").upper()]
+        elif sel_tipo == "Comisiones Bancarias":
+            filtered_exp = [g for g in filtered_exp if "COMISION" in g.get("tipo", "").upper()]
+        elif sel_tipo == "Rendimientos / Intereses":
+            filtered_exp = [g for g in filtered_exp if "INTERES" in g.get("tipo", "").upper() or "RENDIMIENTO" in g.get("tipo", "").upper()]
+        elif sel_tipo == "IVA / Otros":
+            filtered_exp = [g for g in filtered_exp if g.get("tipo", "").upper() not in ["GMF_4X1000", "COMISION", "COMISION_BOLD", "INTERESES", "RENDIMIENTO"]]
+
+        # 4. Métricas de Conceptos Dinámicas
+        calc_gmf = sum(abs(g["monto"]) for g in filtered_exp if "GMF" in g.get("tipo", "").upper())
+        calc_com = sum(abs(g["monto"]) for g in filtered_exp if "COMISION" in g.get("tipo", "").upper())
+        calc_int = sum(abs(g["monto"]) for g in filtered_exp if "INTERES" in g.get("tipo", "").upper() or "RENDIMIENTO" in g.get("tipo", "").upper())
+        calc_tot_gastos = sum(abs(g["monto"]) for g in filtered_exp if g.get("monto", 0) < 0)
+
         m_g1, m_g2, m_g3, m_g4 = st.columns(4)
         with m_g1:
-            st.metric("GMF (4x1000) Total", f"${glob['total_gmf']:,.2f}")
+            st.metric("GMF (4x1000)", f"${calc_gmf:,.2f}")
         with m_g2:
-            st.metric("Comisiones ACH / Portales", f"${glob['total_comisiones']:,.2f}")
+            st.metric("Comisiones ACH / Portales / Bold", f"${calc_com:,.2f}")
         with m_g3:
-            st.metric("Intereses a Favor (Rendimientos)", f"${glob['total_intereses']:,.2f}")
+            st.metric("Intereses a Favor (Rendimientos)", f"${calc_int:,.2f}")
         with m_g4:
-            st.metric("Total Gastos e Impuestos", f"${glob['total_gastos_bancarios']:,.2f}")
+            st.metric("Total Gastos e Impuestos", f"${calc_tot_gastos:,.2f}")
 
-        # Plantilla de Asiento Contable
+        # 5. Plantilla de Asiento Contable Dinámica
         st.markdown("#### 📝 Asiento Contable Modelo Sugerido para Contabilizar en Karing:")
+        
+        if sel_cta != "TODAS LAS CUENTAS":
+            matched_cfg = None
+            for cfg in ACCOUNTS_CATALOG.values():
+                if cfg.karing_name == sel_cta:
+                    matched_cfg = cfg
+                    break
+            cta_code_str = f"{matched_cfg.karing_code} - {matched_cfg.karing_name}" if matched_cfg else f"11XXXX - {sel_cta}"
+            cuenta_label_asiento = f"Cuenta: {sel_cta}"
+        else:
+            cta_code_str = "11XXXX - Bancos (Varias Cuentas)"
+            cuenta_label_asiento = "Todas las Cuentas Bancarias"
+
         st.code(f"""
--- ASIENTO DE AJUSTE BANCARIO - PERIODO {selected_month}
+-- ASIENTO DE AJUSTE BANCARIO - {periodo_title} ({cuenta_label_asiento})
 ---------------------------------------------------------------------------------------------
 CUENTA CONTABLE                    CONCEPTO                      DÉBITO ($)       CRÉDITO ($)
 ---------------------------------------------------------------------------------------------
-511595 - GMF 4x1000                Impuesto GMF del mes          ${glob['total_gmf']:,.2f}
-530515 - Comisiones Bancarias      Comisiones ACH / Efecty/Portal ${glob['total_comisiones']:,.2f}
-11XXXX - Bancos (Varias Cuentas)   Salida por gastos bancarios                     ${glob['total_gastos_bancarios']:,.2f}
+511595 - GMF 4x1000                Impuesto GMF del periodo      ${calc_gmf:,.2f}
+530515 - Comisiones Bancarias      Comisiones ACH / Portal/Bold  ${calc_com:,.2f}
+{cta_code_str:<34} Salida por gastos bancarios                     ${calc_tot_gastos:,.2f}
 ---------------------------------------------------------------------------------------------
-11XXXX - Bancos Cuentas Ahorro     Entrada por rendimientos      ${glob['total_intereses']:,.2f}
-421005 - Ingresos Financieros      Intereses abonados mes                         ${glob['total_intereses']:,.2f}
+{cta_code_str:<34} Entrada por rendimientos      ${calc_int:,.2f}
+421005 - Ingresos Financieros      Intereses abonados periodo                     ${calc_int:,.2f}
 ---------------------------------------------------------------------------------------------
         """, language="sql")
 
+        # 6. Preparar DataFrame para visualización y descarga
         st.markdown("#### Detalle Individual de Cada Cargo:")
-        df_exp_disp = df_exp.copy()
+        df_exp_disp = pd.DataFrame(filtered_exp)
+        
+        # Asegurar columnas defensivamente
+        for col, def_val in [
+            ("periodo", periodo_title),
+            ("banco", ""),
+            ("cuenta_banco", ""),
+            ("fecha", ""),
+            ("monto", 0.0),
+            ("tipo", ""),
+            ("documento", ""),
+            ("sugerencia_contable", ""),
+            ("descripcion", "")
+        ]:
+            if col not in df_exp_disp.columns:
+                df_exp_disp[col] = def_val
+
         df_exp_disp["documento"] = df_exp_disp["documento"].fillna("").astype(str).str.strip().replace({"": "(Sin ref. en extracto)", "None": "(Sin ref. en extracto)", "nan": "(Sin ref. en extracto)"})
         
-        df_exp_disp = df_exp_disp[[
-            "banco", "cuenta_banco", "fecha", "monto", "tipo", "documento", "sugerencia_contable", "descripcion"
-        ]].rename(columns={
+        df_exp_disp["tipo_humano"] = df_exp_disp["tipo"].replace({
+            "GMF_4X1000": "GMF (4x1000)",
+            "COMISION": "Comisión Bancaria / ACH",
+            "COMISION_BOLD": "Comisión Pasarela Bold",
+            "INTERESES": "Intereses a Favor",
+            "IVA": "IVA Bancario"
+        })
+
+        cols_to_use = [
+            "periodo", "banco", "cuenta_banco", "fecha", "monto", "tipo_humano", "documento", "sugerencia_contable", "descripcion"
+        ]
+        
+        df_exp_final = df_exp_disp[cols_to_use].rename(columns={
+            "periodo": "Periodo",
             "banco": "Banco",
-            "cuenta_banco": "Cuenta",
+            "cuenta_banco": "Cuenta Bancaria",
             "fecha": "Fecha",
             "monto": "Monto ($)",
-            "tipo": "Tipo de Partida",
+            "tipo_humano": "Tipo de Partida",
             "documento": "No. Referencia Banco",
             "sugerencia_contable": "Asiento Contable Sugerido",
             "descripcion": "Descripción en Extracto"
         })
 
-        # Botón de Descarga Excel
+        # 7. Botón de Descarga Excel personalizado
+        cta_slug = "Todas_Cuentas" if sel_cta == "TODAS LAS CUENTAS" else re.sub(r'[^a-zA-Z0-9_]+', '_', sel_cta).strip('_')
+        file_name_excel = f"Gastos_Impuestos_{cta_slug}_{periodo_slug}.xlsx"
+        sheet_name_excel = f"Gastos_{cta_slug[:18]}"
+
         excel_exp_bytes = safe_export_dataframe_to_excel_bytes(
-            df_exp_disp,
-            title=f"Gastos e Impuestos Bancarios - {selected_month}",
-            sheet_name="Gastos_Impuestos"
+            df_exp_final,
+            title=f"Gastos e Impuestos Bancarios - {sel_cta} ({periodo_title})",
+            sheet_name=sheet_name_excel
         )
-        col_ex1, col_ex2 = st.columns([3, 1])
+
+        col_ex1, col_ex2 = st.columns([2.0, 2.0])
+        with col_ex1:
+            st.caption(f"Mostrando **{len(df_exp_final):,}** movimientos para **{account_labels.get(sel_cta, sel_cta)}** en **{periodo_title}**.")
         with col_ex2:
+            cta_btn_desc = "Todas las Cuentas" if sel_cta == "TODAS LAS CUENTAS" else (sel_cta[:22] + "...")
             st.download_button(
-                label="📥 Descargar Gastos e Impuestos en Excel (.xlsx)",
+                label=f"📥 Descargar en Excel ({cta_btn_desc})",
                 data=excel_exp_bytes,
-                file_name=f"Gastos_Impuestos_{selected_month.replace(' ', '_')}.xlsx",
+                file_name=file_name_excel,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 width="stretch"
             )
 
+        # 8. Tabla Interactiva
         st.dataframe(
-            df_exp_disp,
+            df_exp_final,
             column_config={
-                "Banco": st.column_config.TextColumn("Banco", width=120),
-                "Cuenta": st.column_config.TextColumn("Cuenta", width=150),
-                "Fecha": st.column_config.TextColumn("Fecha", width=105),
-                "Monto ($)": st.column_config.NumberColumn("Monto ($)", format="$ %,.2f", width=130),
-                "Tipo de Partida": st.column_config.TextColumn("Tipo", width=120),
-                "No. Referencia Banco": st.column_config.TextColumn("Ref. Banco", width=140),
-                "Asiento Contable Sugerido": st.column_config.TextColumn("Asiento Contable Sugerido", width=320),
-                "Descripción en Extracto": st.column_config.TextColumn("Descripción en Extracto", width=350)
+                "Periodo": st.column_config.TextColumn("Periodo", width=110),
+                "Banco": st.column_config.TextColumn("Banco", width=115),
+                "Cuenta Bancaria": st.column_config.TextColumn("Cuenta Bancaria", width=165),
+                "Fecha": st.column_config.TextColumn("Fecha", width=100),
+                "Monto ($)": st.column_config.NumberColumn("Monto ($)", format="$ %,.2f", width=125),
+                "Tipo de Partida": st.column_config.TextColumn("Concepto", width=130),
+                "No. Referencia Banco": st.column_config.TextColumn("Ref. Banco", width=120),
+                "Asiento Contable Sugerido": st.column_config.TextColumn("Asiento Contable Sugerido", width=290),
+                "Descripción en Extracto": st.column_config.TextColumn("Descripción en Extracto", width=320)
             },
             width="stretch",
             hide_index=True
         )
+    else:
+        st.success("🎉 No se registraron gastos bancarios ni impuestos en la selección consultada.")
 
 # =============================================================
 # VISTA 5: LO QUE ESTÁ BIEN (CONCILIADOS 1 A 1)
