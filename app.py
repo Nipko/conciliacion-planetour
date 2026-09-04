@@ -225,7 +225,7 @@ st.markdown("---")
 # EJECUCIÓN DEL MOTOR CON INDICADOR DE CARGA VISIBLE
 # -------------------------------------------------------------
 @st.cache_data(show_spinner=False)
-def run_reconciliation(month: str, tol: int, _cache_version: str = "v2.2"):
+def run_reconciliation(month: str, tol: int, _cache_version: str = "v2.3"):
     eng = ReconciliationEngine(root_dir=ROOT_DIR, date_tolerance_days=tol)
     return eng.reconcile_month(month)
 
