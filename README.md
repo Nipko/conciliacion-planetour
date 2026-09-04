@@ -4,23 +4,63 @@ Sistema automatizado de auditoría y conciliación contable desarrollado para **
 
 ---
 
-## 🚀 Inicio Rápido
+## 🖥️ Instalación en un Nuevo Servidor / Equipo (Windows 11)
 
-### Opción 1: Panel de Control Web Interactivo (Recomendado)
-- Haz doble clic en el archivo **`iniciar_conciliador.bat`** en la carpeta principal.
-- O ejecuta desde la terminal:
-  ```bash
-  python -m streamlit run app.py
-  ```
+En un nuevo equipo con Windows 11, solo debes seguir estos 3 pasos:
 
-### Opción 2: Ejecución por Línea de Comandos (CLI)
-Para procesar meses por lotes o generar reportes automáticos:
+### Paso 1: Clonar el repositorio
+Abre **PowerShell** o **Símbolo del sistema (CMD)** y ejecuta:
 ```bash
-# Conciliar un mes específico:
-python reconcile_cli.py --month "AGOSTO 2026"
+git clone https://github.com/Nipko/conciliacion-planetour.git
+cd conciliacion-planetour
+```
+*(Si el nuevo equipo aún no tiene Git, puedes descargar el ZIP desde GitHub o ejecutar `winget install --id Git.Git -e --source winget` en PowerShell).*
 
-# Conciliar todos los meses y generar todos los Excel:
-python reconcile_cli.py --all
+### Paso 2: Ejecutar el Instalador Automático
+Haz doble clic en el archivo:
+👉 **`instalar_windows11.bat`**
+
+Este script hace todo automáticamente:
+1. Verifica si **Git** está instalado (y si no, lo instala de inmediato con `winget`).
+2. Verifica si **Python** está instalado (y si no, lo instala automáticamente).
+3. Crea el entorno virtual aislado (`venv`).
+4. Instala todas las librerías necesarias (`requirements.txt`).
+5. Habilita el puerto 8501 en el Firewall de Windows para que otros computadores de la oficina puedan entrar.
+6. Inicia el panel web inmediatamente.
+
+---
+
+## 🔄 Cómo Actualizar Cambios desde GitHub (Windows 11)
+
+Cada vez que se suban mejoras o cambios al repositorio en GitHub, ve a la carpeta del proyecto y haz doble clic en:
+👉 **`actualizar_windows11.bat`**
+
+El script automáticamente:
+1. Descarga el código más reciente (`git pull origin main`).
+2. Actualiza cualquier nueva librería de Python.
+3. Inicia el sistema con las nuevas funciones aplicadas.
+
+---
+
+## 🚀 Uso Diario en Windows
+Para abrir la aplicación en el día a día, simplemente haz doble clic en:
+👉 **`iniciar_conciliador.bat`**
+
+- Abrirá el navegador web en `http://localhost:8501`.
+- Los demás equipos de la red pueden ingresar mediante: `http://[IP-DEL-EQUIPO]:8501`.
+
+---
+
+## 🐧 Instalación en Servidores Linux (Ubuntu / Debian / RHEL)
+Si deseas desplegarlo en un servidor Linux o en la nube (AWS, Azure, DigitalOcean):
+```bash
+# 1. Instalar y configurar como servicio 24/7 (systemd):
+chmod +x instalar_servidor_linux.sh
+./instalar_servidor_linux.sh
+
+# 2. Para actualizar cambios futuros en Linux:
+chmod +x actualizar_servidor_linux.sh
+./actualizar_servidor_linux.sh
 ```
 
 ---
@@ -48,7 +88,7 @@ python reconcile_cli.py --all
 ## 🌟 Módulos y Funcionalidades Clave
 
 - **📊 1. Tablero Ejecutivo de Control:** Resumen global de saldos, tasa de efectividad, diferencias brutas y cuadro por banco con filtros rápidos.
-- **🚨 2. Lo que está MAL (Cruces Intercuentas):** Detección automática de dineros que ingresaron o salieron de un banco pero se registraron contablemente en otra cuenta en Karing, con instrucciones precisas de reclasificación.
+- **🚨 2. Lo que está MAL (Cruces Intercuentas):** Detección automática de dineros que entraron/salieron de un banco pero se registraron contablemente en otra cuenta en Karing, con instrucciones precisas de reclasificación.
 - **❓ 3. Lo que FALTA por Conciliar:** Separación clara entre partidas no contabilizadas en Karing (pendientes de banco) y registros contables no reflejados en el extracto (pendientes de Karing).
 - **💸 4. Gastos e Impuestos Bancarios:** Identificación automática de GMF (4x1000), comisiones ACH/Efecty/portales y rendimientos financieros con propuesta de asiento contable.
 - **✅ 5. Conciliados 1 a 1 con ID Pareo:** Pareo exacto por valor, sentido y proximidad de fechas, asignando un código único (`PAR-XXXX-0001`) a cada cruce para trazabilidad total.
@@ -60,34 +100,30 @@ python reconcile_cli.py --all
 
 ---
 
-## 📁 Estructura del Proyecto
+## 📁 Estructura del Repositorio
 
 ```
 conciliacion-planetour/
-├── app.py                      # Interfaz web principal en Streamlit
-├── reconcile_cli.py            # Ejecutor por consola / CLI
-├── iniciar_conciliador.bat     # Lanzador de un clic para Windows
-├── README.md                   # Documentación general del sistema
-├── .gitignore                  # Reglas de exclusión de git
+├── app.py                         # Interfaz web principal en Streamlit
+├── reconcile_cli.py               # Ejecutor por consola / CLI
+├── requirements.txt               # Dependencias Python
+├── iniciar_conciliador.bat        # Lanzador diario para Windows
+├── instalar_windows11.bat         # Instalador automático para Windows 11
+├── actualizar_windows11.bat       # Actualizador Git para Windows 11
+├── instalar_servidor_linux.sh     # Instalador automático con systemd (Linux)
+├── actualizar_servidor_linux.sh   # Actualizador Git para Linux
+├── README.md                      # Documentación general del sistema
+├── .gitignore                     # Reglas de exclusión de git
 ├── src/
-│   ├── engine/
-│   │   ├── account_map.py      # Catálogo y configuración de cuentas contables
-│   │   └── matcher.py          # Motor de cruce, intercuentas y pareo 1 a 1
-│   ├── parsers/
-│   │   ├── bancolombia_parser.py
-│   │   ├── bbva_parser.py
-│   │   ├── bogota_parser.py
-│   │   ├── bold_parser.py
-│   │   ├── davivienda_parser.py
-│   │   └── karing_parser.py
-│   └── reports/
-│       └── excel_generator.py  # Generador de libros Excel (.xlsx) formateados
-├── BANCOLOMBIA/                # Extractos y auxiliares organizados por mes
+│   ├── engine/                    # Motores de cruce, mapeo y balance
+│   ├── parsers/                   # Extractores de extractos PDF y Karing
+│   └── reports/                   # Generador de libros Excel (.xlsx)
+├── BANCOLOMBIA/                   # Extractos y libros auxiliares por mes
 ├── BBVA/
 ├── BOGOTA/
 ├── BOLD/
 ├── DAVIVIENDA/
-└── informes/                   # Salida de libros de conciliación generados
+└── informes/                      # Libros de conciliación generados
 ```
 
 ---
