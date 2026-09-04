@@ -137,6 +137,19 @@ def safe_export_dataframe_to_excel_bytes(df: pd.DataFrame, title: str, sheet_nam
         df.to_excel(writer, sheet_name=sheet_name[:31], index=False)
     return buf.getvalue()
 
+# Mapeo global de nombres legibles para cuentas bancarias
+GLOBAL_ACCOUNT_LABELS = {}
+for cfg in ACCOUNTS_CATALOG.values():
+    last_digits = str(cfg.account_number)[-4:] if cfg.account_number else ""
+    suffix = f" (#{last_digits})" if last_digits else ""
+    GLOBAL_ACCOUNT_LABELS[cfg.karing_name] = f"{cfg.bank_name} - {cfg.karing_name}{suffix}"
+
+account_labels = GLOBAL_ACCOUNT_LABELS
+
+def get_account_label(acc_name: str) -> str:
+    if acc_name == "TODAS LAS CUENTAS":
+        return "🏦 TODAS LAS CUENTAS (Consolidado)"
+    return GLOBAL_ACCOUNT_LABELS.get(acc_name, acc_name)
 
 # -------------------------------------------------------------
 # GESTIÓN DE ESTADO DE NAVEGACIÓN (DRILL-DOWN INTERACTIVO)
@@ -226,7 +239,7 @@ st.markdown("---")
 # EJECUCIÓN DEL MOTOR CON INDICADOR DE CARGA VISIBLE
 # -------------------------------------------------------------
 @st.cache_data(show_spinner=False)
-def run_reconciliation(month: str, tol: int, _cache_version: str = "v2.4"):
+def run_reconciliation(month: str, tol: int, _cache_version: str = "v2.5"):
     eng = ReconciliationEngine(root_dir=ROOT_DIR, date_tolerance_days=tol)
     return eng.reconcile_month(month)
 
@@ -852,7 +865,7 @@ elif st.session_state["active_tab"] == MENU_OPTIONS[3]:
             sel_cta = st.selectbox(
                 "🏦 Filtrar por Cuenta Bancaria:",
                 options=ctas_options,
-                format_func=lambda x: "🏦 TODAS LAS CUENTAS (Consolidado)" if x == "TODAS LAS CUENTAS" else account_labels.get(x, x),
+                format_func=get_account_label,
                 key="flt_exp_cta"
             )
 
@@ -977,7 +990,7 @@ CUENTA CONTABLE                    CONCEPTO                      DÉBITO ($)    
 
         col_ex1, col_ex2 = st.columns([2.0, 2.0])
         with col_ex1:
-            st.caption(f"Mostrando **{len(df_exp_final):,}** movimientos para **{account_labels.get(sel_cta, sel_cta)}** en **{periodo_title}**.")
+            st.caption(f"Mostrando **{len(df_exp_final):,}** movimientos para **{get_account_label(sel_cta)}** en **{periodo_title}**.")
         with col_ex2:
             cta_btn_desc = "Todas las Cuentas" if sel_cta == "TODAS LAS CUENTAS" else (sel_cta[:22] + "...")
             st.download_button(
@@ -1064,7 +1077,7 @@ elif st.session_state["active_tab"] == MENU_OPTIONS[4]:
         sel_cta_int = st.selectbox(
             "🏦 Filtrar por Cuenta Bancaria:",
             options=ctas_int_options,
-            format_func=lambda x: "🏦 TODAS LAS CUENTAS (Consolidado)" if x == "TODAS LAS CUENTAS" else account_labels.get(x, x),
+            format_func=get_account_label,
             key="flt_int_cta"
         )
 
