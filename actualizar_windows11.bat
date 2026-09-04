@@ -35,9 +35,10 @@ echo [✓] Código actualizado a la última versión disponible en GitHub.
 REM 2. Actualizar dependencias de Python
 echo.
 echo [2/3] Verificando dependencias en venv...
-if not exist "venv" (
-    echo Creando entorno virtual venv...
-    python -m venv venv
+if not exist "venv\Scripts\python.exe" (
+    echo [!] Entorno virtual no encontrado. Preparando instalación...
+    call iniciar_conciliador.bat
+    exit /b 0
 )
 
 call venv\Scripts\activate.bat
@@ -51,7 +52,6 @@ echo   ¡ACTUALIZACIÓN COMPLETADA CON ÉXITO!
 echo ==============================================================================
 echo.
 
-REM Obtener IP local del equipo
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4" ^| findstr /v "127.0.0.1"') do (
     set "LOCAL_IP=%%a"
     set "LOCAL_IP=!LOCAL_IP: =!"
@@ -68,5 +68,6 @@ echo.
 echo Iniciando servicio actualizado...
 echo.
 
-python -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
+start "" "http://localhost:8501"
+venv\Scripts\python.exe -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
 pause
