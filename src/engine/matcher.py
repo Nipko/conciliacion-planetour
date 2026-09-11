@@ -182,6 +182,52 @@ class ReconciliationEngine:
                             "cuenta_karing": acc_cfg.karing_name
                         })
 
+            # 1.4 Cruce directo 1-a-1 con tolerancia de redondeo (hasta $1.05) dentro de la misma cuenta
+            for bt in b_txs:
+                if bt["id_interno"] in used_bank_by_acc[acc_key]:
+                    continue
+                if bt.get("categoria", "OPERATIVA") != "OPERATIVA":
+                    continue
+                bt_val = round(abs(bt["monto"]), 2)
+                bt_date = bt["fecha"]
+                is_abono = bt["es_abono"]
+
+                candidates = []
+                for kt in k_txs:
+                    if kt["id_interno"] in used_karing_by_acc[acc_key]:
+                        continue
+                    kt_val = round(kt["debito"] if is_abono else kt["credito"], 2)
+                    if (is_abono and kt["debito"] > 0) or (not is_abono and kt["credito"] > 0):
+                        val_diff = round(abs(kt_val - bt_val), 2)
+                        if 0.0 < val_diff <= 1.05:
+                            days_diff = 999
+                            if bt_date and kt["fecha"] and pd.notna(kt["fecha"]):
+                                days_diff = abs((bt_date - kt["fecha"]).days)
+                            if days_diff <= (self.date_tolerance_days + 3):
+                                candidates.append((days_diff, val_diff, kt))
+
+                if candidates:
+                    candidates.sort(key=lambda x: (x[0], x[1]))
+                    best_diff, best_val_diff, best_k = candidates[0]
+                    used_bank_by_acc[acc_key].add(bt["id_interno"])
+                    used_karing_by_acc[acc_key].add(best_k["id_interno"])
+                    conciliados_by_acc[acc_key].append({
+                        "id_pareo": f"PAR-{acc_cfg.account_key}-{len(conciliados_by_acc[acc_key]) + 1:04d}",
+                        "tipo_cruce": "DIRECTO_1_A_1_REDONDEO",
+                        "fecha_banco": bt["fecha_str"],
+                        "documento_banco": bt.get("documento", ""),
+                        "fecha_karing": best_k["fecha_str"],
+                        "diferencia_dias": best_diff,
+                        "diferencia_monto": best_val_diff,
+                        "documento_karing": best_k["documento"],
+                        "tipo_documento_karing": best_k.get("tipo_documento", "RC"),
+                        "detalle_karing": best_k["detalle"],
+                        "descripcion_banco": bt["descripcion"],
+                        "valor_conciliado": bt_val,
+                        "sentido": "INGRESO" if is_abono else "EGRESO",
+                        "cuenta_karing": acc_cfg.karing_name
+                    })
+
         # -------------------------------------------------------------------------
         # FASE 2: Cruce Intercuentas (Reclasificaciones entre cuentas)
         # -------------------------------------------------------------------------

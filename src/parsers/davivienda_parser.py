@@ -112,7 +112,7 @@ class DaviviendaParser:
                 categoria = "OPERATIVA"
                 if any(k in desc_upper for k in ["GRAVAMEN", "4X1000", "GMF"]):
                     categoria = "GMF_4X1000"
-                elif "IVA" in desc_upper:
+                elif bool(re.search(r'\bIVA\b', desc_upper)) and sign == "-":
                     categoria = "IVA"
                 elif any(k in desc_upper for k in ["COBRO", "COMISION", "CUOTA"]):
                     categoria = "COMISION"
@@ -162,7 +162,7 @@ class DaviviendaParser:
                 categoria = "OPERATIVA"
                 if any(k in desc_upper for k in ["GRAVAMEN", "4X1000", "GMF"]):
                     categoria = "GMF_4X1000"
-                elif "IVA" in desc_upper:
+                elif bool(re.search(r'\bIVA\b', desc_upper)) and sign == "-":
                     categoria = "IVA"
                 elif any(k in desc_upper for k in ["COBRO", "COMISION", "CUOTA"]):
                     categoria = "COMISION"

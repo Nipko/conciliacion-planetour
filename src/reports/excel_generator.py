@@ -293,7 +293,7 @@ class ExcelReportGenerator:
 
         ws["A1"] = "MOVIMIENTOS IMPUTADOS EN CUENTA EQUIVOCADA (CRUCES INTERCUENTAS)"
         ws["A1"].font = self.font_title
-        ws["A2"] = "El dinero ingresó/salió en el Banco Real, pero fue contabilizado en otra cuenta distinta en Karing."
+        ws["A2"] = "IMPORTANTE: Estas partidas SÍ existen en Karing y en el Banco, pero contabilidad las registró en un banco diferente al real (ej: registradas en BBVA pero entraron a Bancolombia). NO deben volverse a registrar; únicamente trasladar en Karing."
         ws["A2"].font = self.font_subtitle
 
         headers = [
@@ -524,13 +524,15 @@ class ExcelReportGenerator:
 
         ws["A1"] = "MOVIMIENTOS EN EXTRACTO BANCARIO PENDIENTES POR REGISTRAR EN KARING"
         ws["A1"].font = self.font_title
+        ws["A2"] = "NOTA: Si un movimiento del extracto no aparece en esta lista, consulte la hoja 'Cruces Intercuentas'. Las partidas consignadas o transferidas que contabilidad registró en otra cuenta bancaria se detallan allí para evitar duplicidades."
+        ws["A2"].font = self.font_subtitle
 
         headers = [
             "Cuenta Bancaria", "Fecha Extracto", "Monto ($)", "Tipo de Movimiento",
             "Descripción en Extracto", "No. Referencia Banco", "Qué Falta Hacer en Karing"
         ]
 
-        row_idx = 3
+        row_idx = 4
         for col_idx, h in enumerate(headers, 1):
             cell = ws.cell(row=row_idx, column=col_idx, value=h)
             cell.font = self.font_header
@@ -572,13 +574,15 @@ class ExcelReportGenerator:
 
         ws["A1"] = "REGISTROS EN KARING PENDIENTES EN BANCO (CHEQUES O RECIBOS EN TRÁNSITO)"
         ws["A1"].font = self.font_title
+        ws["A2"] = "NOTA: Si un recibo de caja o comprobante de egreso no aparece aquí, verifique la hoja 'Cruces Intercuentas'. Los registros imputados en un banco diferente al real se encuentran clasificados allí como traslados contables."
+        ws["A2"].font = self.font_subtitle
 
         headers = [
             "Cuenta en Karing", "Fecha Contable", "No. Recibo / Doc Karing", "Tipo Doc (RC/CE)",
             "Tercero / Concepto en Karing", "Débito ($)", "Crédito ($)", "Estado de la Partida", "Acción Recomendada"
         ]
 
-        row_idx = 3
+        row_idx = 4
         for col_idx, h in enumerate(headers, 1):
             cell = ws.cell(row=row_idx, column=col_idx, value=h)
             cell.font = self.font_header

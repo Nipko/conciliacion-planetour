@@ -239,7 +239,7 @@ st.markdown("---")
 # EJECUCIÓN DEL MOTOR CON INDICADOR DE CARGA VISIBLE
 # -------------------------------------------------------------
 @st.cache_data(show_spinner=False)
-def run_reconciliation(month: str, tol: int, _cache_version: str = "v2.5"):
+def run_reconciliation(month: str, tol: int, _cache_version: str = "v2.6"):
     eng = ReconciliationEngine(root_dir=ROOT_DIR, date_tolerance_days=tol)
     return eng.reconcile_month(month)
 
@@ -475,11 +475,9 @@ if st.session_state["active_tab"] == MENU_OPTIONS[0]:
 elif st.session_state["active_tab"] == MENU_OPTIONS[1]:
     st.markdown("""
     <div class="danger-banner">
-        <h4 style="margin:0 0 6px 0; color:#881337;">🚨 ¿Qué es esta sección? (Lo que está MAL y requiere corrección)</h4>
-        <b>Error detectado:</b> El dinero llegó efectivamente al extracto bancario de la cuenta <b>A</b>, 
-        pero en Karing el movimiento fue registrado por error en el auxiliar de la cuenta <b>B</b>.<br>
-        <b>Impacto:</b> La cuenta A queda con dinero sobrante sin justificar, y la cuenta B queda con recibos inflados sin respaldo bancario.<br>
-        <b>Solución:</b> Realizar el traslado contable en Karing del documento indicado.
+        <h4 style="margin:0 0 6px 0; color:#881337;">🚨 ¿Qué son los Cruces Intercuentas? (Movimientos en Cuenta Errónea)</h4>
+        <b>¡IMPORTANTE: Estas partidas NO faltan en el banco ni faltan en Karing!</b> Existen en ambos lados, pero contabilidad las registró en el auxiliar contable equivocado (por ejemplo: el dinero ingresó a Bancolombia, pero en Karing se digitó dentro de BBVA).<br>
+        <b>⚠️ Acción de Contabilidad:</b> NO volver a registrar estos movimientos en Karing. Simplemente realizar el <b>traslado o reclasificación contable</b> entre las cuentas indicadas.
     </div>
     """, unsafe_allow_html=True)
 
@@ -593,9 +591,10 @@ elif st.session_state["active_tab"] == MENU_OPTIONS[2]:
     st.markdown("""
     <div class="warning-banner">
         <h4 style="margin:0 0 6px 0; color:#78350f;">❓ ¿Qué es esta sección? (Lo que FALTA por cuadrar)</h4>
-        Aquí se desglosan las partidas que no se han podido cruzar directamente. Se dividen en dos grupos claros:<br>
-        1. <b>Falta en Karing (Pendientes Banco):</b> Dinero que se movió en el banco pero NO está contabilizado en Karing.<br>
-        2. <b>Falta en Banco (Pendientes Karing):</b> Recibos o egresos en libros contables que NO entraron ni salieron del banco.
+        Aquí se desglosan las partidas que no se han podido cruzar directamente:<br>
+        1. <b>Falta en Karing (Pendientes Banco):</b> Dinero que se movió en el extracto bancario pero NO está contabilizado en Karing.<br>
+        2. <b>Falta en Banco (Pendientes Karing):</b> Recibos o egresos en libros contables que NO entraron ni salieron del banco.<br><br>
+        💡 <b>¿Buscas un movimiento y no lo ves aquí?</b> Verifica la pestaña <b>'2. Lo que está MAL (Cruces Intercuentas)'</b>. Si una partida entró a un banco pero contabilidad la registró en otro (ej. entró a Bancolombia pero se digitó en BBVA), el sistema la clasifica allá para evitar que la dupliques por error.
     </div>
     """, unsafe_allow_html=True)
 
@@ -607,6 +606,7 @@ elif st.session_state["active_tab"] == MENU_OPTIONS[2]:
     with tab_f_bank:
         st.markdown("##### 🏦 Movimientos en Extracto Bancario pendientes de registrar en Karing")
         st.write("Representan consignaciones de clientes no identificadas, transferencias entrantes sin recibo, o notas débito bancarias.")
+        st.info("💡 **Recordatorio de Auditoría:** Si buscas una consignación o transferencia del extracto y no aparece en esta lista, verifica la pestaña **'2. Lo que está MAL (Cruces Intercuentas)'**. Es muy probable que ya haya sido contabilizada en Karing pero bajo otra cuenta bancaria diferente.")
 
         pb_items = []
         for acc_k, acc_r in reconciliation["cuentas"].items():
@@ -707,6 +707,7 @@ elif st.session_state["active_tab"] == MENU_OPTIONS[2]:
     with tab_f_kar:
         st.markdown("##### 📖 Registros en Libros Karing no reflejados en el Extracto Bancario")
         st.write("Representan recibos de caja que nunca ingresaron a la cuenta, cheques girados no cobrados, o posibles recibos duplicados/anulados.")
+        st.info("💡 **Recordatorio de Auditoría:** Si buscas un recibo o pago de Karing y no aparece aquí, verifica la pestaña **'2. Lo que está MAL (Cruces Intercuentas)'**. Si el dinero entró a otra cuenta bancaria de Planetour, el sistema lo protege allí para indicarte el traslado contable correspondiente.")
 
         pk_items = []
         for acc_k, acc_r in reconciliation["cuentas"].items():

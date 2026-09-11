@@ -100,7 +100,7 @@ class BogotaParser:
                     categoria = "COMISION"
                 elif "INTERES" in desc_upper:
                     categoria = "INTERESES"
-                elif "IVA" in desc_upper:
+                elif bool(re.search(r'\bIVA\b', desc_upper)) and val_num < 0:
                     categoria = "IVA"
 
                 transactions.append({

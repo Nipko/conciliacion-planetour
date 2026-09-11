@@ -139,7 +139,7 @@ class BBVAParser:
                 categoria = "COMISION"
             elif "INTERES" in desc_upper:
                 categoria = "INTERESES"
-            elif "IVA" in desc_upper:
+            elif bool(re.search(r'\bIVA\b', desc_upper)) and is_cargo:
                 categoria = "IVA"
 
             transactions.append({

@@ -113,7 +113,7 @@ class BancolombiaParser:
                     categoria = "GMF_4X1000"
                 elif any(k in desc_upper for k in ["COMISION", "CUOTA DE MANEJO"]):
                     categoria = "COMISION"
-                elif "IVA" in desc_upper:
+                elif bool(re.search(r'\bIVA\b', desc_upper)) and val_num < 0:
                     categoria = "IVA"
 
                 transactions.append({
